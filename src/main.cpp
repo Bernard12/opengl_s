@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <unistd.h>
 #include "GL/glew.h"
 #include "GLM/glm.hpp"
@@ -8,6 +9,7 @@
 #include "GLFW/glfw3.h"
 
 #include <random>
+#include <iostream>
 
 const int WIDTH = 400, HEIGHT = 400;
 const int FPS = 10;
@@ -23,7 +25,7 @@ static const char* vShader = "#version 330\n"
                              "out vec4 bruh;"
                              "void main() {\n"
                              "    gl_Position = transform * vec4(pos, 1.0f);\n"
-                             "    bruh = vec4(pos, 1.0f);"
+                             "    bruh = vec4(clamp(pos, 0., 1.), 1.0f);"
                              "}";
 
 // fragment GLOBAL_SHADER
@@ -32,18 +34,39 @@ static const char* fShader = "#version 330\n"
                              "in vec4 bruh;"
                              "uniform float u_time;"
                              "void main() {"
-                             "    vec2 coord = gl_FragCoord.xy;"
-                             "    vec2 ct = vec2(1.0, 1.0);"
-                             "    float dt = distance(coord, ct);"
-                             "    colour = vec4(sin(dt), sin(dt), sin(dt), 1.0);"
+                             "    vec2 coord = gl_FragCoord.xy / 800;"
+                             "    colour = vec4(coord.x, coord.y, 0.0, 1.0);"
                              "}";
 
+std::string readFile(const char *filePath) {
+    std::string content;
+    std::ifstream fileStream(filePath, std::ios::in);
+
+    if(!fileStream.is_open()) {
+        std::cout << "Could not read file " << filePath << ". File does not exist." << std::endl;
+        return "";
+    }
+
+    std::string line = "";
+    while(!fileStream.eof()) {
+        std::getline(fileStream, line);
+        content.append(line + "\n");
+    }
+
+    fileStream.close();
+    return content;
+}
 
 void createTriangle() {
     GLfloat verticies[] = {
             -1.f, -1.f, 0.f,
-            0.f, 1.f, 0.f,
-            1.f, -1.f, 0.f
+            -1.f, 1.f, 0.f,
+            1.f, -1.f, 0.f,
+
+            -1.f, 1.f, 0.f,
+            1.f, -1.f, 0.f,
+            1.f, 1.f, 0.f
+
     };
 
     glGenVertexArrays(1, &VAO);
@@ -52,7 +75,7 @@ void createTriangle() {
     {
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_DYNAMIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(0);
@@ -86,6 +109,13 @@ void addShader(GLuint program, const char* shaderCode, GLenum shaderType) {
     glAttachShader(program, theShader);
 }
 
+const char* fromString(std::string& s) {
+    int n = s.length();
+    char* char_array = new char[n + 1];
+    strcpy(char_array, s.c_str());
+    return char_array;
+}
+
 void compileShaders() {
     GLOBAL_SHADER = glCreateProgram();
 
@@ -93,9 +123,11 @@ void compileShaders() {
         printf("Failed to create GLOBAL_SHADER");
         return;
     }
+    auto vsh = readFile("./vertex.glsl");
+    auto fsh = readFile("./frag.glsl");
 
-    addShader(GLOBAL_SHADER, vShader, GL_VERTEX_SHADER);
-    addShader(GLOBAL_SHADER, fShader, GL_FRAGMENT_SHADER);
+    addShader(GLOBAL_SHADER, fromString(vsh), GL_VERTEX_SHADER);
+    addShader(GLOBAL_SHADER, fromString(fsh), GL_FRAGMENT_SHADER);
 
     GLint results = 0;
     GLchar eLog[2014] = {0};
@@ -162,6 +194,7 @@ int main() {
     }
     //setup viewport
     glViewport(0, 0, WIDTH, HEIGHT);
+    glShadeModel(GL_FLAT);
     createTriangle();
     compileShaders();
 
@@ -184,11 +217,11 @@ int main() {
         int id = glGetUniformLocation(GLOBAL_SHADER, "transform");
         glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(transform));
 
-//        id = glGetUniformLocation(GLOBAL_SHADER, "u_time");
-//        value+=0.05f;
-//        glUniform1f(id, value);
+        id = glGetUniformLocation(GLOBAL_SHADER, "u_time");
+        value+=0.05f;
+        glUniform1f(id, value);
 
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         glUseProgram(0);
 
@@ -198,3 +231,4 @@ int main() {
 
     return 0;
 }
+

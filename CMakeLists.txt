@@ -21,4 +21,6 @@ add_executable(gl src/main.cpp)
 #include_directories(${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 #target_link_libraries(gl ${opengl_libraries} ${GLEW_LIBRARY}) 
 
+file(COPY src/vertex.glsl DESTINATION ./)
+file(COPY src/frag.glsl DESTINATION ./)
 target_link_libraries(gl ${LIBS})
